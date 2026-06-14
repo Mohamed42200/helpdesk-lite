@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+
+{% block title %}Agent Dashboard{% endblock %}
+
+{% block navbar %}
+<header class="navbar">
+    <div class="brand">Helpdesk Lite</div>
+    <nav>
+        <span id="userGreeting"></span>
+        <a href="/tickets/my/">Assigned Tickets</a>
+        <a href="/faq/">FAQ</a>
+        <button class="btn btn-secondary btn-sm" onclick="logout()">Logout</button>
+    </nav>
+</header>
+{% endblock %}
+
+{% block content %}
+<h1>Agent Dashboard</h1>
+<p class="mb-2" style="color: var(--muted);">Manage your assigned support tickets.</p>
+
+<div class="stats-grid" id="stats"></div>
+
+<div class="card">
+    <h2>Assigned Tickets</h2>
+    <div id="ticketsList">Loading...</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const user = requireAuth(['agent']);
+    if (!user) throw new Error('Unauthorized');
+
+    document.getElementById('userGreeting').textContent = `Agent: ${user.username}`;
+
+    async function loadDashboard() {
+        try {
+            const tickets = await API.getMyTickets();
+            const open = tickets.filter(t => t.status === 'open').length;
+            const inProgress = tickets.filter(t => t.status === 'in_progress').length;
+            const resolved = tickets.filter(t => t.status === 'resolved').length;
+
+            document.getElementById('stats').innerHTML = `
+                <div class="stat-card"><div class="number">${tickets.length}</div><div class="label">Assigned</div></div>
+                <div class="stat-card"><div class="number">${open}</div><div class="label">Open</div></div>
+                <div class="stat-card"><div class="number">${inProgress}</div><div class="label">In Progress</div></div>
+                <div class="stat-card"><div class="number">${resolved}</div><div class="label">Resolved</div></div>
+            `;
+
+            if (!tickets.length) {
+                document.getElementById('ticketsList').innerHTML = '<p>No assigned tickets.</p>';
+                return;
+            }
+
+            const rows = tickets.map(t => `
+                <tr>
+                    <td><a href="/tickets/${t.id}/">#${t.id}</a></td>
+                    <td>${t.title}</td>
+                    <td>${t.created_by.username}</td>
+                    <td>${priorityBadge(t.priority)}</td>
+                    <td>${statusBadge(t.status)}</td>
+                    <td>${formatDate(t.created_at)}</td>
+                </tr>
+            `).join('');
+
+            document.getElementById('ticketsList').innerHTML = `
+                <table class="table">
+                    <thead><tr><th>ID</th><th>Title</th><th>Employee</th><th>Priority</th><th>Status</th><th>Created</th></tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            `;
+        } catch (err) {
+            document.getElementById('ticketsList').innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+        }
+    }
+
+    loadDashboard();
+</script>
+{% endblock %}

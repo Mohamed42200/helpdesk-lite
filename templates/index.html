@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+
+{% block title %}Helpdesk Lite - Home{% endblock %}
+
+{% block navbar %}
+<header class="navbar">
+    <div class="brand">Helpdesk Lite</div>
+    <nav>
+        <a href="/faq/">FAQ</a>
+        <a href="/login/">Login</a>
+        <a href="/register/">Register</a>
+    </nav>
+</header>
+{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <h1>Internal Helpdesk System</h1>
+    <p>Submit support tickets, track progress, and get help from your IT team.</p>
+    <div class="actions" style="justify-content: center;">
+        <a href="/register/" class="btn btn-primary">Get Started</a>
+        <a href="/login/" class="btn btn-secondary">Login</a>
+        <a href="/faq/" class="btn btn-secondary">View FAQ</a>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const user = API.getUser();
+    if (user && API.getToken()) redirectByRole(user.role);
+</script>
+{% endblock %}

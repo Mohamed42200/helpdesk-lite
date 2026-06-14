@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+
+{% block title %}FAQ{% endblock %}
+
+{% block navbar %}
+<header class="navbar">
+    <div class="brand"><a href="/">Helpdesk Lite</a></div>
+    <nav>
+        <a href="/login/">Login</a>
+        <span id="adminLink" class="hidden"><a href="/dashboard/admin/">Admin</a></span>
+        <button id="logoutBtn" class="btn btn-secondary btn-sm hidden" onclick="logout()">Logout</button>
+    </nav>
+</header>
+{% endblock %}
+
+{% block content %}
+<h1>Frequently Asked Questions</h1>
+
+<div class="filters mb-2">
+    <input type="text" id="searchInput" placeholder="Search FAQ..." style="flex:1; padding:0.6rem; border:1px solid var(--border); border-radius:6px;">
+    <button class="btn btn-primary" onclick="searchFAQ()">Search</button>
+</div>
+
+<div id="faqList">Loading...</div>
+
+<div id="adminFAQ" class="card hidden mt-2">
+    <h2>Manage FAQ (Admin)</h2>
+    <div id="adminAlert"></div>
+    <form id="faqForm">
+        <input type="hidden" id="faqId">
+        <div class="form-group">
+            <label>Question</label>
+            <input type="text" id="faqQuestion" required>
+        </div>
+        <div class="form-group">
+            <label>Answer</label>
+            <textarea id="faqAnswer" required></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">Save</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="resetFAQForm()">Clear</button>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const user = API.getUser();
+
+    if (user && API.getToken()) {
+        if (user.role === 'admin') {
+            document.getElementById('adminLink').classList.remove('hidden');
+            document.getElementById('adminFAQ').classList.remove('hidden');
+        }
+        document.getElementById('logoutBtn').classList.remove('hidden');
+    }
+
+    async function loadFAQ(search = '') {
+        try {
+            const faqs = await API.getFAQ(search);
+            if (!faqs.length) {
+                document.getElementById('faqList').innerHTML = '<p>No FAQ entries found.</p>';
+                return;
+            }
+
+            document.getElementById('faqList').innerHTML = faqs.map(f => `
+                <div class="card">
+                    <h3>${f.question}</h3>
+                    <p>${f.answer}</p>
+                    ${user?.role === 'admin' ? `
+                        <div class="actions mt-1">
+                            <button class="btn btn-secondary btn-sm edit-faq-btn"
+                                data-id="${f.id}"
+                                data-question="${f.question.replace(/"/g, '&quot;')}"
+                                data-answer="${f.answer.replace(/"/g, '&quot;')}">Edit</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteFAQ(${f.id})">Delete</button>
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+
+            document.querySelectorAll('.edit-faq-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    editFAQ({
+                        id: btn.dataset.id,
+                        question: btn.dataset.question,
+                        answer: btn.dataset.answer,
+                    });
+                });
+            });
+        } catch (err) {
+            document.getElementById('faqList').innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+        }
+    }
+
+    function searchFAQ() {
+        loadFAQ(document.getElementById('searchInput').value);
+    }
+
+    function editFAQ(faq) {
+        document.getElementById('faqId').value = faq.id;
+        document.getElementById('faqQuestion').value = faq.question;
+        document.getElementById('faqAnswer').value = faq.answer;
+    }
+
+    function resetFAQForm() {
+        document.getElementById('faqId').value = '';
+        document.getElementById('faqQuestion').value = '';
+        document.getElementById('faqAnswer').value = '';
+    }
+
+    async function deleteFAQ(id) {
+        if (!confirm('Delete this FAQ entry?')) return;
+        try {
+            await API.deleteFAQ(id);
+            loadFAQ();
+        } catch (err) {
+            showAlert(document.getElementById('adminAlert'), err.message);
+        }
+    }
+
+    if (user?.role === 'admin') {
+        document.getElementById('faqForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const alertEl = document.getElementById('adminAlert');
+            const id = document.getElementById('faqId').value;
+            const payload = {
+                question: document.getElementById('faqQuestion').value,
+                answer: document.getElementById('faqAnswer').value,
+            };
+            try {
+                if (id) {
+                    await API.updateFAQ(id, payload);
+                } else {
+                    await API.createFAQ(payload);
+                }
+                resetFAQForm();
+                showAlert(alertEl, 'FAQ saved.', 'success');
+                loadFAQ();
+            } catch (err) {
+                showAlert(alertEl, err.message);
+            }
+        });
+    }
+
+    document.getElementById('searchInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') searchFAQ();
+    });
+
+    loadFAQ();
+</script>
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block title %}Reports{% endblock %}
+
+{% block navbar %}
+<header class="navbar">
+    <div class="brand"><a href="/dashboard/admin/">Helpdesk Lite</a></div>
+    <nav>
+        <a href="/users/">Users</a>
+        <a href="/tickets/my/">All Tickets</a>
+        <button class="btn btn-secondary btn-sm" onclick="logout()">Logout</button>
+    </nav>
+</header>
+{% endblock %}
+
+{% block content %}
+<h1>Ticket Reports</h1>
+<div id="reportsContent">Loading...</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const user = requireAuth(['admin']);
+    if (!user) throw new Error('Unauthorized');
+
+    async function loadReports() {
+        try {
+            const reports = await API.getReports();
+            document.getElementById('reportsContent').innerHTML = `
+                <div class="stats-grid">
+                    <div class="stat-card"><div class="number">${reports.total_tickets}</div><div class="label">Total Tickets</div></div>
+                    <div class="stat-card"><div class="number">${reports.open_tickets}</div><div class="label">Open</div></div>
+                    <div class="stat-card"><div class="number">${reports.in_progress_tickets}</div><div class="label">In Progress</div></div>
+                    <div class="stat-card"><div class="number">${reports.resolved_tickets}</div><div class="label">Resolved</div></div>
+                    <div class="stat-card"><div class="number">${reports.closed_tickets}</div><div class="label">Closed</div></div>
+                </div>
+                <div class="card">
+                    <h2>By Priority</h2>
+                    <table class="table">
+                        <thead><tr><th>Priority</th><th>Count</th></tr></thead>
+                        <tbody>
+                            <tr><td>Low</td><td>${reports.by_priority.low}</td></tr>
+                            <tr><td>Medium</td><td>${reports.by_priority.medium}</td></tr>
+                            <tr><td>High</td><td>${reports.by_priority.high}</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        } catch (err) {
+            document.getElementById('reportsContent').innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+        }
+    }
+
+    loadReports();
+</script>
+{% endblock %}

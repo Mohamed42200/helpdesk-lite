@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block title %}Login - Helpdesk Lite{% endblock %}
+
+{% block navbar %}
+<header class="navbar">
+    <div class="brand"><a href="/">Helpdesk Lite</a></div>
+    <nav>
+        <a href="/register/">Register</a>
+        <a href="/faq/">FAQ</a>
+    </nav>
+</header>
+{% endblock %}
+
+{% block content %}
+<div class="auth-container card">
+    <h2>Login</h2>
+    <div id="alert"></div>
+    <form id="loginForm">
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" required>
+        </div>
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" required>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%">Login</button>
+    </form>
+    <p class="text-center mt-2">No account? <a href="/register/">Register</a></p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const user = API.getUser();
+    if (user && API.getToken()) redirectByRole(user.role);
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const alertEl = document.getElementById('alert');
+        try {
+            const data = await API.login({
+                username: document.getElementById('username').value,
+                password: document.getElementById('password').value,
+            });
+            API.setAuth(data.token, data.user);
+            redirectByRole(data.user.role);
+        } catch (err) {
+            showAlert(alertEl, "Invalid username or password"); 
+        }
+    });
+</script>
+{% endblock %}
+
+
+## err.message

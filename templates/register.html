@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block title %}Register - Helpdesk Lite{% endblock %}
+
+{% block navbar %}
+<header class="navbar">
+    <div class="brand"><a href="/">Helpdesk Lite</a></div>
+    <nav>
+        <a href="/login/">Login</a>
+        <a href="/faq/">FAQ</a>
+    </nav>
+</header>
+{% endblock %}
+
+{% block content %}
+<div class="auth-container card">
+    <h2>Employee Registration</h2>
+    <div id="alert"></div>
+    <form id="registerForm">
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" required>
+        </div>
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" required>
+        </div>
+        <div class="form-group">
+            <label for="first_name">First Name</label>
+            <input type="text" id="first_name">
+        </div>
+        <div class="form-group">
+            <label for="last_name">Last Name</label>
+            <input type="text" id="last_name">
+        </div>
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" required minlength="6">
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%">Register</button>
+    </form>
+    <p class="text-center mt-2">Already have an account? <a href="/login/">Login</a></p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const alertEl = document.getElementById('alert');
+        try {
+            const data = await API.register({
+                username: document.getElementById('username').value,
+                email: document.getElementById('email').value,
+                first_name: document.getElementById('first_name').value,
+                last_name: document.getElementById('last_name').value,
+                password: document.getElementById('password').value,
+            });
+            API.setAuth(data.token, data.user);
+            redirectByRole(data.user.role);
+        } catch (err) {
+            showAlert(alertEl, err.message);
+        }
+    });
+</script>
+{% endblock %}

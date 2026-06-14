@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+
+{% block title %}My Tickets{% endblock %}
+
+{% block navbar %}
+<header class="navbar">
+    <div class="brand"><a href="#" id="dashLink">Helpdesk Lite</a></div>
+    <nav>
+        <a href="/tickets/create/" id="createLink" class="hidden">Create Ticket</a>
+        <a href="/faq/">FAQ</a>
+        <button class="btn btn-secondary btn-sm" onclick="logout()">Logout</button>
+    </nav>
+</header>
+{% endblock %}
+
+{% block content %}
+<h1 id="pageTitle">Tickets</h1>
+<div class="card">
+    <div id="ticketsList">Loading...</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const user = requireAuth(['employee', 'agent', 'admin']);
+    if (!user) throw new Error('Unauthorized');
+
+    const dashRoutes = {
+        employee: '/dashboard/employee/',
+        agent: '/dashboard/agent/',
+        admin: '/dashboard/admin/',
+    };
+    document.getElementById('dashLink').href = dashRoutes[user.role];
+
+    if (user.role === 'employee') {
+        document.getElementById('createLink').classList.remove('hidden');
+        document.getElementById('pageTitle').textContent = 'My Tickets';
+    } else if (user.role === 'agent') {
+        document.getElementById('pageTitle').textContent = 'Assigned Tickets';
+    } else {
+        document.getElementById('pageTitle').textContent = 'All Tickets';
+    }
+
+    async function loadTickets() {
+        try {
+            const tickets = user.role === 'admin'
+                ? await API.getAllTickets()
+                : await API.getMyTickets();
+
+            if (!tickets.length) {
+                document.getElementById('ticketsList').innerHTML = '<p>No tickets found.</p>';
+                return;
+            }
+
+            const showEmployee = user.role !== 'employee';
+            const rows = tickets.map(t => `
+                <tr>
+                    <td><a href="/tickets/${t.id}/">#${t.id}</a></td>
+                    <td>${t.title}</td>
+                    ${showEmployee ? `<td>${t.created_by.username}</td>` : ''}
+                    ${user.role === 'admin' ? `<td>${t.assigned_to ? t.assigned_to.username : '-'}</td>` : ''}
+                    <td>${priorityBadge(t.priority)}</td>
+                    <td>${statusBadge(t.status)}</td>
+                    <td>${formatDate(t.created_at)}</td>
+                </tr>
+            `).join('');
+
+            document.getElementById('ticketsList').innerHTML = `
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th><th>Title</th>
+                            ${showEmployee ? '<th>Employee</th>' : ''}
+                            ${user.role === 'admin' ? '<th>Agent</th>' : ''}
+                            <th>Priority</th><th>Status</th><th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            `;
+        } catch (err) {
+            document.getElementById('ticketsList').innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+        }
+    }
+
+    loadTickets();
+</script>
+{% endblock %}

@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+
+{% block title %}Create Ticket{% endblock %}
+
+{% block navbar %}
+<header class="navbar">
+    <div class="brand"><a href="/dashboard/employee/">Helpdesk Lite</a></div>
+    <nav>
+        <a href="/tickets/my/">My Tickets</a>
+        <a href="/faq/">FAQ</a>
+        <button class="btn btn-secondary btn-sm" onclick="logout()">Logout</button>
+    </nav>
+</header>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 600px; margin: 0 auto;">
+    <h2>Create Support Ticket</h2>
+    <div id="alert"></div>
+    <form id="createForm">
+        <div class="form-group">
+            <label for="title">Title</label>
+            <input type="text" id="title" required maxlength="200">
+        </div>
+        <div class="form-group">
+            <label for="description">Description</label>
+            <textarea id="description" required></textarea>
+        </div>
+        <div class="form-group">
+            <label for="priority">Priority</label>
+            <select id="priority">
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Submit Ticket</button>
+        <a href="/tickets/my/" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const user = requireAuth(['employee']);
+    if (!user) throw new Error('Unauthorized');
+
+    document.getElementById('createForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const alertEl = document.getElementById('alert');
+        try {
+            const ticket = await API.createTicket({
+                title: document.getElementById('title').value,
+                description: document.getElementById('description').value,
+                priority: document.getElementById('priority').value,
+            });
+            if (!ticket.id) {
+                showAlert(alertEl, 'Ticket created successfully!', 'success');
+                setTimeout(() => window.location.href = '/tickets/my/', 1000);
+                return;
+            }
+            showAlert(alertEl, `Ticket #${ticket.id} created successfully!`, 'success');
+            setTimeout(() => window.location.href = `/tickets/${ticket.id}/`, 1000);
+        } catch (err) {
+            showAlert(alertEl, err.message);
+        }
+    });
+</script>
+{% endblock %}

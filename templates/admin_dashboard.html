@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block navbar %}
+<header class="navbar">
+    <div class="brand">Helpdesk Lite</div>
+    <nav>
+        <span id="userGreeting"></span>
+        <a href="/tickets/my/">All Tickets</a>
+        <a href="/users/">Users</a>
+        <a href="/reports/">Reports</a>
+        <a href="/faq/">FAQ</a>
+        <button class="btn btn-secondary btn-sm" onclick="logout()">Logout</button>
+    </nav>
+</header>
+{% endblock %}
+
+{% block content %}
+<h1>Admin Dashboard</h1>
+<p class="mb-2" style="color: var(--muted);">Monitor tickets, manage users, and view reports.</p>
+
+<div class="stats-grid" id="stats"></div>
+
+<div class="card">
+    <h2>Recent Tickets</h2>
+    <div id="ticketsList">Loading...</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const user = requireAuth(['admin']);
+    if (!user) throw new Error('Unauthorized');
+
+    document.getElementById('userGreeting').textContent = `Admin: ${user.username}`;
+
+    async function loadDashboard() {
+        try {
+            const [reports, tickets] = await Promise.all([
+                API.getReports(),
+                API.getAllTickets(),
+            ]);
+
+            document.getElementById('stats').innerHTML = `
+                <div class="stat-card"><div class="number">${reports.total_tickets}</div><div class="label">Total</div></div>
+                <div class="stat-card"><div class="number">${reports.open_tickets}</div><div class="label">Open</div></div>
+                <div class="stat-card"><div class="number">${reports.in_progress_tickets}</div><div class="label">In Progress</div></div>
+                <div class="stat-card"><div class="number">${reports.resolved_tickets}</div><div class="label">Resolved</div></div>
+                <div class="stat-card"><div class="number">${reports.closed_tickets}</div><div class="label">Closed</div></div>
+            `;
+
+            const rows = tickets.slice(0, 10).map(t => `
+                <tr>
+                    <td><a href="/tickets/${t.id}/">#${t.id}</a></td>
+                    <td>${t.title}</td>
+                    <td>${t.created_by.username}</td>
+                    <td>${t.assigned_to ? t.assigned_to.username : '-'}</td>
+                    <td>${priorityBadge(t.priority)}</td>
+                    <td>${statusBadge(t.status)}</td>
+                </tr>
+            `).join('');
+
+            document.getElementById('ticketsList').innerHTML = `
+                <table class="table">
+                    <thead><tr><th>ID</th><th>Title</th><th>Employee</th><th>Agent</th><th>Priority</th><th>Status</th></tr></thead>
+                    <tbody>${rows || '<tr><td colspan="6">No tickets</td></tr>'}</tbody>
+                </table>
+            `;
+        } catch (err) {
+            document.getElementById('ticketsList').innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+        }
+    }
+
+    loadDashboard();
+</script>
+{% endblock %}

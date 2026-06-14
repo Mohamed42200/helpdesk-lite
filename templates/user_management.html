@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+
+{% block title %}User Management{% endblock %}
+
+{% block navbar %}
+<header class="navbar">
+    <div class="brand"><a href="/dashboard/admin/">Helpdesk Lite</a></div>
+    <nav>
+        <a href="/reports/">Reports</a>
+        <a href="/faq/">FAQ</a>
+        <button class="btn btn-secondary btn-sm" onclick="logout()">Logout</button>
+    </nav>
+</header>
+{% endblock %}
+
+{% block content %}
+<h1>User Management</h1>
+
+<div class="card">
+    <h2>Create User</h2>
+    <div id="alert"></div>
+    <form id="userForm">
+        <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="username" required>
+        </div>
+        <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="email">
+        </div>
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="password" required minlength="6">
+        </div>
+        <div class="form-group">
+            <label>Role</label>
+            <select id="role">
+                <option value="employee">Employee</option>
+                <option value="agent">Agent</option>
+                <option value="admin">Admin</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">Create User</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>All Users</h2>
+    <div id="usersList">Loading...</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const user = requireAuth(['admin']);
+    if (!user) throw new Error('Unauthorized');
+
+    async function loadUsers() {
+        try {
+            const users = await API.getUsers();
+            const rows = users.map(u => `
+                <tr>
+                    <td>${u.id}</td>
+                    <td>${u.username}</td>
+                    <td>${u.email || '-'}</td>
+                    <td>${u.role}</td>
+                    <td>
+                        <button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id}, '${u.username}')">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+
+            document.getElementById('usersList').innerHTML = `
+                <table class="table">
+                    <thead><tr><th>ID</th><th>Username</th><th>Email</th><th>Role</th><th>Actions</th></tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            `;
+        } catch (err) {
+            document.getElementById('usersList').innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+        }
+    }
+
+    document.getElementById('userForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const alertEl = document.getElementById('alert');
+        try {
+            await API.createUser({
+                username: document.getElementById('username').value,
+                email: document.getElementById('email').value,
+                password: document.getElementById('password').value,
+                role: document.getElementById('role').value,
+            });
+            showAlert(alertEl, 'User created.', 'success');
+            document.getElementById('userForm').reset();
+            loadUsers();
+        } catch (err) {
+            showAlert(alertEl, err.message);
+        }
+    });
+
+    async function deleteUser(id, username) {
+        if (!confirm(`Delete user ${username}?`)) return;
+        try {
+            await API.deleteUser(id);
+            loadUsers();
+        } catch (err) {
+            showAlert(document.getElementById('alert'), err.message);
+        }
+    }
+
+    loadUsers();
+</script>
+{% endblock %}

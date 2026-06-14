@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+
+{% block title %}Ticket Detail{% endblock %}
+
+{% block navbar %}
+<header class="navbar">
+    <div class="brand"><a href="#" id="dashLink">Helpdesk Lite</a></div>
+    <nav>
+        <a href="/tickets/my/">Back to Tickets</a>
+        <button class="btn btn-secondary btn-sm" onclick="logout()">Logout</button>
+    </nav>
+</header>
+{% endblock %}
+
+{% block content %}
+<div id="alert"></div>
+<div id="ticketContent">Loading...</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const user = requireAuth(['employee', 'agent', 'admin']);
+    if (!user) throw new Error('Unauthorized');
+
+    const dashRoutes = {
+        employee: '/dashboard/employee/',
+        agent: '/dashboard/agent/',
+        admin: '/dashboard/admin/',
+    };
+    document.getElementById('dashLink').href = dashRoutes[user.role];
+
+    const ticketId = window.location.pathname.split('/').filter(Boolean).pop();
+
+    async function loadTicket() {
+        const container = document.getElementById('ticketContent');
+        try {
+            const ticket = await API.getTicket(ticketId);
+            const isClosed = ticket.status === 'closed';
+            const canComment = !isClosed && (
+                (user.role === 'employee' && ticket.created_by.id === user.id) ||
+                (user.role === 'agent') ||
+                (user.role === 'admin')
+            );
+            const canClose = !isClosed && user.role === 'employee' && ticket.created_by.id === user.id;
+            const canUpdateStatus = !isClosed && (user.role === 'agent' || user.role === 'admin');
+
+            let statusControls = '';
+            if (canUpdateStatus) {
+                statusControls = `
+                    <div class="form-group mt-2">
+                        <label>Update Status</label>
+                        <div class="actions">
+                            <select id="statusSelect">
+                                <option value="open" ${ticket.status === 'open' ? 'selected' : ''}>Open</option>
+                                <option value="in_progress" ${ticket.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
+                                <option value="resolved" ${ticket.status === 'resolved' ? 'selected' : ''}>Resolved</option>
+                                <option value="closed" ${ticket.status === 'closed' ? 'selected' : ''}>Closed</option>
+                            </select>
+                            <button class="btn btn-primary btn-sm" onclick="updateStatus()">Update</button>
+                        </div>
+                    </div>
+                `;
+                if (user.role === 'admin') {
+                    statusControls += `
+                        <div class="form-group mt-1">
+                            <label>Assign Agent</label>
+                            <div class="actions">
+                                <select id="agentSelect"><option value="">Unassigned</option></select>
+                                <button class="btn btn-secondary btn-sm" onclick="assignAgent()">Assign</button>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            const comments = (ticket.comments || []).map(c => `
+                <div class="comment">
+                    <div class="meta"><strong>${c.author.username}</strong> (${c.author.role}) - ${formatDate(c.created_at)}</div>
+                    <div>${c.message}</div>
+                </div>
+            `).join('') || '<p>No comments yet.</p>';
+
+            container.innerHTML = `
+                <div class="card">
+                    <h2>#${ticket.id} - ${ticket.title}</h2>
+                    <p><strong>Status:</strong> ${statusBadge(ticket.status)} ${priorityBadge(ticket.priority)}</p>
+                    <p><strong>Created by:</strong> ${ticket.created_by.username}</p>
+                    <p><strong>Assigned to:</strong> ${ticket.assigned_to ? ticket.assigned_to.username : 'Unassigned'}</p>
+                    <p><strong>Created:</strong> ${formatDate(ticket.created_at)}</p>
+                    <hr style="margin: 1rem 0; border: none; border-top: 1px solid var(--border);">
+                    <p>${ticket.description}</p>
+                    ${statusControls}
+                    ${canClose ? '<button class="btn btn-danger btn-sm mt-2" onclick="closeTicket()">Close Ticket</button>' : ''}
+                </div>
+                <div class="card">
+                    <h2>Comments</h2>
+                    <div id="comments">${comments}</div>
+                    ${canComment ? `
+                        <form id="commentForm" class="mt-2">
+                            <div class="form-group">
+                                <textarea id="commentMessage" placeholder="Add a comment..." required></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-sm">Post Comment</button>
+                        </form>
+                    ` : ''}
+                </div>
+            `;
+
+            if (user.role === 'admin') {
+                const agents = await API.getAgents();
+                const select = document.getElementById('agentSelect');
+                agents.forEach(a => {
+                    const opt = document.createElement('option');
+                    opt.value = a.id;
+                    opt.textContent = a.username;
+                    if (ticket.assigned_to && ticket.assigned_to.id === a.id) opt.selected = true;
+                    select.appendChild(opt);
+                });
+            }
+
+            const form = document.getElementById('commentForm');
+            if (form) {
+                form.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const alertEl = document.getElementById('alert');
+                    try {
+                        await API.addComment(ticketId, document.getElementById('commentMessage').value);
+                        document.getElementById('commentMessage').value = '';
+                        loadTicket();
+                    } catch (err) {
+                        showAlert(alertEl, err.message);
+                    }
+                });
+            }
+        } catch (err) {
+            container.innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+        }
+    }
+
+    async function updateStatus() {
+        const alertEl = document.getElementById('alert');
+        try {
+            await API.updateTicketStatus(ticketId, {
+                status: document.getElementById('statusSelect').value,
+            });
+            showAlert(alertEl, 'Status updated.', 'success');
+            loadTicket();
+        } catch (err) {
+            showAlert(alertEl, err.message);
+        }
+    }
+
+    async function assignAgent() {
+        const alertEl = document.getElementById('alert');
+        const agentId = document.getElementById('agentSelect').value;
+        const payload = {};
+        if (agentId) payload.assigned_to = parseInt(agentId, 10);
+        else payload.assigned_to = null;
+        try {
+            await API.updateTicketStatus(ticketId, payload);
+            showAlert(alertEl, 'Agent assigned.', 'success');
+            loadTicket();
+        } catch (err) {
+            showAlert(alertEl, err.message);
+        }
+    }
+
+    async function closeTicket() {
+        const alertEl = document.getElementById('alert');
+        if (!confirm('Close this ticket?')) return;
+        try {
+            await API.closeTicket(ticketId);
+            showAlert(alertEl, 'Ticket closed.', 'success');
+            loadTicket();
+        } catch (err) {
+            showAlert(alertEl, err.message);
+        }
+    }
+
+    loadTicket();
+</script>
+{% endblock %}
