@@ -2,6 +2,14 @@
 
 A lightweight internal helpdesk system for managing employee support tickets.
 
+
+<img width="1880" height="762" alt="Screenshot 2026-07-14 054828" src="https://github.com/user-attachments/assets/83392a72-3a5b-48ab-af7c-ea2b92db6b49" />
+
+<img width="1722" height="931" alt="Screenshot 2026-07-14 054847" src="https://github.com/user-attachments/assets/46e0c4ee-67cb-43ee-a940-eba7f6af6cb9" />
+
+<img width="1861" height="822" alt="Screenshot 2026-07-14 054804" src="https://github.com/user-attachments/assets/dd3444ed-2676-468e-946b-c03445a3294b" />
+
+
 ## Tech Stack
 
 - **Backend:** Django + Django REST Framework
